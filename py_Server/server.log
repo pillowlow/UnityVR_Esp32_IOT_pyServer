@@ -1,0 +1,50 @@
+2024-08-01 15:02:36,008 Server started, waiting for clients to connect...
+2024-08-01 15:02:36,051 server listening on 0.0.0.0:8080
+2024-08-01 15:03:49,188 connection open
+2024-08-01 15:03:49,189 New client connected: ('192.168.100.210', 55810)
+2024-08-01 15:03:49,204 Received message from ('192.168.100.210', 55810): Hello Server
+2024-08-01 15:03:49,204 Error: Passing coroutines is forbidden, use tasks explicitly.
+2024-08-01 15:03:49,216 Client disconnected: ('192.168.100.210', 55810)
+2024-08-01 15:03:49,718 connection closed
+2024-08-01 15:13:38,461 connection open
+2024-08-01 15:13:38,461 New client connected: ('192.168.100.210', 51987)
+2024-08-01 15:13:38,479 Received message from ('192.168.100.210', 51987): Hello Server I am Esp32
+2024-08-01 15:13:38,481 Error: Passing coroutines is forbidden, use tasks explicitly.
+2024-08-01 15:13:38,481 Client disconnected: ('192.168.100.210', 51987)
+2024-08-01 15:13:38,983 connection closed
+2024-08-01 18:58:50,739 connection open
+2024-08-01 18:58:50,739 New client connected: ('192.168.100.210', 62187)
+2024-08-01 18:58:50,774 Received message from ('192.168.100.210', 62187): Hello Server I am Esp32
+2024-08-01 18:58:50,774 Error: Passing coroutines is forbidden, use tasks explicitly.
+2024-08-01 18:58:50,774 Client disconnected: ('192.168.100.210', 62187)
+2024-08-01 18:58:51,275 connection closed
+2024-08-02 01:43:58,249 Server started, waiting for clients to connect...
+2024-08-02 01:43:58,293 server listening on 0.0.0.0:8080
+2024-08-02 01:47:05,337 connection open
+2024-08-02 01:47:05,337 New client connected: ('192.168.100.210', 52105)
+2024-08-02 01:47:05,449 Received message from ('192.168.100.210', 52105): Hello Server, I am ESP32
+2024-08-02 01:50:17,451 connection open
+2024-08-02 01:50:17,451 New client connected: ('192.168.100.210', 54856)
+2024-08-02 01:50:17,714 Received message from ('192.168.100.210', 54856): Hello Server, I am ESP32
+2024-08-02 01:50:17,734 Error: no close frame received or sent
+2024-08-02 01:50:17,734 Client disconnected: ('192.168.100.210', 52105)
+2024-08-02 01:50:17,734 connection closed
+2024-08-02 01:59:31,673 Server started, waiting for clients to connect...
+2024-08-02 01:59:31,688 server listening on 0.0.0.0:8080
+2024-08-02 02:00:59,965 connection open
+2024-08-02 02:00:59,965 New client connected: ('192.168.100.210', 61234)
+2024-08-02 02:01:00,058 Received message from ('192.168.100.210', 61234): Hello Server, I am ESP32
+2024-08-02 02:01:11,011 Received message from ('192.168.100.210', 61234): 1231355
+2024-08-02 02:01:22,690 Received message from ('192.168.100.210', 61234): i can send u message
+2024-08-02 02:01:28,021 Received message from ('192.168.100.210', 61234): asdfasdf
+2024-08-02 02:02:23,517 Received message from ('192.168.100.210', 61234): i can send message from esp32 to pc server!
+2024-08-02 02:17:44,067 Server started, waiting for clients to connect...
+2024-08-02 02:17:44,082 server listening on 0.0.0.0:8080
+2024-08-02 02:18:18,681 connection open
+2024-08-02 02:18:18,681 New client connected: ('192.168.100.210', 63378)
+2024-08-02 02:18:18,695 Received message from ('192.168.100.210', 63378): Hello Server, I am ESP32
+2024-08-02 02:18:27,697 Received message from ('192.168.100.210', 63378): i try
+2024-08-02 02:18:33,023 Broadcasting message: itryasdf
+2024-08-02 02:20:30,733 Connection closed: sent 1011 (internal error) keepalive ping timeout; no close frame received
+2024-08-02 02:20:30,733 Client disconnected: ('192.168.100.210', 63378)
+2024-08-02 02:20:30,733 connection closed
