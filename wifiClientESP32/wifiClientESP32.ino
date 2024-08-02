@@ -22,15 +22,8 @@ void setup() {
     
     // Run callback when messages are received
     client.onMessage([&](WebsocketsMessage message){
-        Serial.print("Got Message: ");
+        Serial.print("Received from server: ");
         Serial.println(message.data());
-    });
-
-    // Run callback when the connection is closed
-    client.onClose([&](WebsocketsCloseReason reason, const String& message) {
-        Serial.print("Disconnected: ");
-        Serial.println(message);
-        reconnectWebSocket();
     });
 }
 
@@ -38,13 +31,25 @@ void loop() {
     // Check for serial input and send to server
     if (Serial.available() > 0) {
         String input = Serial.readStringUntil('\n');
-        client.send(input.c_str());
+
+        if (input == "restart") {
+            restartESP();
+        } else if (input == "reconnect") {
+            reconnectWebSocket();
+        } else if (input == "disconnect") {
+            disconnect();
+        } else {
+            client.send(input.c_str());
+            Serial.print("Sent to server: ");
+            Serial.println(input);
+        }
     }
 
     // Let the websockets client check for incoming messages
     client.poll();
     delay(500);
 }
+
 
 void connectToWiFi() {
     WiFi.begin(ssid, password);
@@ -64,6 +69,7 @@ void connectToWebSocket() {
     if (connected) {
         Serial.println("Connected to WebSocket!");
         client.send("Hello Server, I am ESP32");
+        Serial.println("Sent to server: Hello Server, I am ESP32");
     } else {
         Serial.println("Failed to connect to WebSocket!");
         reconnectWebSocket();
@@ -76,6 +82,7 @@ void reconnectWebSocket() {
         if (client.connect(websockets_server_host, websockets_server_port, "/")) {
             Serial.println("Reconnected to WebSocket!");
             client.send("Hello Server, I am ESP32");
+            Serial.println("Sent to server: Hello Server, I am ESP32");
             break;
         }
         Serial.println("Reconnection attempt failed. Retrying...");
@@ -86,4 +93,10 @@ void reconnectWebSocket() {
 void disconnect() {
     client.close();
     Serial.println("Connection closed");
+}
+
+void restartESP() {
+    Serial.println("Restarting ESP32...");
+    delay(1000);
+    ESP.restart();
 }
