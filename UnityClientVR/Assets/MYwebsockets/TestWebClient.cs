@@ -3,9 +3,9 @@ using NativeWebSocket;
 using UnityEngine.UI;
 using System.Text;
 
-public class TestWebClient : MonoBehaviour
+public class WebSocketClient : MonoBehaviour
 {
-     private WebSocket websocket;
+    private WebSocket websocket;
 
     public InputField inputField;
     public Text logText;
@@ -84,13 +84,7 @@ public class TestWebClient : MonoBehaviour
         if (websocket != null)
         {
             #if !UNITY_WEBGL || UNITY_EDITOR
-                websocket.DispatchMessageQueue().ContinueWith(t =>
-                {
-                    if (t.Exception != null)
-                    {
-                        Debug.LogError(t.Exception);
-                    }
-                });
+                websocket.DispatchMessageQueue();
             #endif
         }
     }
@@ -102,5 +96,4 @@ public class TestWebClient : MonoBehaviour
             await websocket.Close();
         }
     }
-    
 }
