@@ -1,14 +1,18 @@
 using UnityEngine;
 using NativeWebSocket;
+using TMPro;
 using UnityEngine.UI;
 using System.Text;
 
 public class WebSocketClient : MonoBehaviour
-{
+{      
+
+    [Header("WebSocket Settings")]
+    public string ipAddress = "192.168.100.157"; // Default IP address
     private WebSocket websocket;
 
-    public InputField inputField;
-    public Text logText;
+    public TMP_InputField inputField;
+    public TextMeshProUGUI logText;
     public Button connectButton;
     public Button disconnectButton;
     public Button sendButton;
@@ -24,10 +28,10 @@ public class WebSocketClient : MonoBehaviour
 
     async void ConnectToWebSocket()
     {
-        websocket = new WebSocket("ws://192.168.100.157:8080/");
+         websocket = new WebSocket($"ws://{ipAddress}:8080/");
 
         websocket.OnOpen += () =>
-        {
+        {   
             Debug.Log("Connection open!");
             Log("Connection open!");
         };
@@ -76,8 +80,28 @@ public class WebSocketClient : MonoBehaviour
 
     void Log(string message)
     {
-        logText.text += message + "\n";
+        Debug.Log("Log: " + message);
+
+        if (logText != null)
+        {
+            logText.text += message + "\n";
+            string[] lines = logText.text.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+
+            // If the number of lines exceeds 6, remove the oldest line
+            if (lines.Length > 8)
+            {
+                logText.text = string.Join("\n", lines, 1, lines.Length - 1) + "\n";
+            }
+
+            // Force TextMeshPro to update the text
+            logText.ForceMeshUpdate();
+        }
+        else
+        {
+            Debug.LogError("logText is null. Make sure it is assigned in the Inspector.");
+        }
     }
+
 
     void Update()
     {

@@ -41,6 +41,7 @@ class WebSocketServer:
 
     async def main(self):
         logging.info("Server started, waiting for clients to connect...")
+        # the server hold on 5050 port 
         self.server = await websockets.serve(self.register, "0.0.0.0", 8080)
         while not self.should_stop:
             await asyncio.sleep(1)
