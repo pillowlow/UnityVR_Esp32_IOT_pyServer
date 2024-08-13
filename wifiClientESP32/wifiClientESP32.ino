@@ -6,8 +6,8 @@
 #include <ArduinoWebsockets.h>
 #include <WiFi.h>
 
-const char* ssid = "yu68"; // Enter SSID
-const char* password = "2869chen"; // Enter Password
+const char* ssid = "yu68"; // Enter your WIFI SSID
+const char* password = "2869chen"; // Enter your Password
 const char* websockets_server_host = "192.168.100.157"; // Enter server address
 const uint16_t websockets_server_port = 8080; // Enter server port
 
@@ -23,9 +23,18 @@ void setup() {
     connectToWebSocket();
     
     client.onMessage([&](WebsocketsMessage message){
-        Serial.print("Received from server: ");
-        Serial.println(message.data());
-    });
+      String receivedMessage = message.data();
+      Serial.print("Received from server: ");
+      Serial.println(receivedMessage);
+
+      // Check if the message indicates the server is closing
+      if (receivedMessage == "SERVER_CLOSING") {
+          Serial.println("Server is closing, disconnecting...");
+          client.close(1000, "Normal closure"); ;  // Properly close the connection
+          delay(1000);     // Add a delay to ensure the close frame is sent
+          ESP.restart();   // Restart the ESP32 to ensure a clean disconnection
+    }
+});
 }
 
 void loop() {
@@ -38,6 +47,7 @@ void loop() {
             reconnectWebSocket();
         } else if (input == "disconnect") {
             disconnect();
+            
         } else {
             client.send(input.c_str());
             Serial.print("Sent to server: ");

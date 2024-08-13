@@ -54,22 +54,93 @@ class WebSocketServer:
             logging.warning("No clients connected to broadcast the message.")
             app.log_message("No clients connected to broadcast the message.")
 
+    async def disconnect_all_clients(self):
+        if clients:
+            logging.info("Disconnecting all clients...")
+            disconnect_tasks = []
+            for client_id, websocket in list(clients.items()):
+                try:
+                    logging.info(f"Sending disconnect notice to client ID {client_id}")
+                    await websocket.send("SERVER_CLOSING")
+                    logging.info(f"Adding disconnect task for client ID {client_id}")
+
+                    # Attempting to close the connection with a timeout
+                    logging.info(f"Attempting to close connection for client ID {client_id}")
+                    await asyncio.wait_for(websocket.close(), timeout=5.0)
+                    logging.info(f"Connection closed for client ID {client_id}")
+
+                except asyncio.TimeoutError:
+                    logging.error(f"Timeout occurred while disconnecting client ID {client_id}")
+                    # Forcefully close the connection
+                    await websocket.close(code=1000, reason='Server forced closure')
+                    logging.info(f"Forcefully closed connection for client ID {client_id}")
+                except Exception as e:
+                    logging.error(f"Error disconnecting client ID {client_id}: {e}")
+            clients.clear()
+            logging.info("All clients have been disconnected.")
+
+
+
+
     async def main(self):
         logging.info("Server started, waiting for clients to connect...")
         self.server = await websockets.serve(self.register, "0.0.0.0", 8080)
-        while not self.should_stop:
-            await asyncio.sleep(1)
-        self.server.close()
-        await self.server.wait_closed()
+        try:
+            while not self.should_stop:
+                await asyncio.sleep(1)
+        finally:
+            logging.info("Server stopping, disconnecting all clients...")
+            await self.disconnect_all_clients()  # Disconnect all clients before closing the server
+
+            logging.info("All clients disconnected, closing server...")
+            self.server.close()
+            logging.info("Server socket closed, waiting for server to finish closing...")
+
+            try:
+                await asyncio.wait_for(self.server.wait_closed(), timeout=1.0)  # Add timeout to server closure
+                logging.info("Server has been stopped successfully.")
+            except asyncio.TimeoutError:
+                logging.error("Timeout while waiting for server to close.")
+                logging.info("Forcibly stopping the event loop and cancelling all tasks...")
+
+                # Forcefully stop the event loop and cancel all tasks
+                tasks = asyncio.all_tasks(self.loop)
+                for task in tasks:
+                    logging.info(f"Cancelling task: {task}")
+                    task.cancel()
+
+                logging.info("Stopping the event loop...")
+                self.loop.stop()  # Attempt to stop the event loop
+                logging.info("Event loop stopped.")
+            except Exception as e:
+                logging.error(f"Error while closing server: {e}")
+
+            finally:
+                # Attempt to clean up and close the event loop completely
+                if not self.loop.is_closed():
+                    logging.info("Closing the event loop forcefully...")
+                    self.loop.close()
+                    logging.info("Event loop closed.")
+
+
 
     def start(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self.should_stop = False
-        self.loop.run_until_complete(self.main())
+        try:
+            self.loop.run_until_complete(self.main())
+        finally:
+            self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+            self.loop.close()
 
     def stop(self):
         self.should_stop = True
+        if self.server is not None:
+
+            # Now, safely close the server
+            self.server.close()
+
 
 
 def get_ip_address():
@@ -151,8 +222,13 @@ class ServerApp:
         self.stop_button.config(state=tk.NORMAL)
 
     def stop_server(self):
+        # Signal the server to stop
         server.stop()
+
+        # Join the server thread to ensure it has finished
         self.server_thread.join()
+
+        # Update the UI
         self.log_message("Server stopped.")
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
