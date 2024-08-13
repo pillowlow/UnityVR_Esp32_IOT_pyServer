@@ -6,10 +6,12 @@
 #include <ArduinoWebsockets.h>
 #include <WiFi.h>
 
-const char* ssid = "yu68"; // Enter SSID
-const char* password = "2869chen"; // Enter Password
+const char* ssid = "your_home_wifi_SSID"; // Enter SSID
+const char* password = "your_home_wifi_password"; // Enter Password
 const char* websockets_server_host = "192.168.100.157"; // Enter server address
 const uint16_t websockets_server_port = 8080; // Enter server port
+
+const char* client_id = "ESP32Client1"; // The ID that this client will send to the server
 
 using namespace websockets;
 
@@ -20,7 +22,6 @@ void setup() {
     connectToWiFi();
     connectToWebSocket();
     
-    // Run callback when messages are received
     client.onMessage([&](WebsocketsMessage message){
         Serial.print("Received from server: ");
         Serial.println(message.data());
@@ -28,7 +29,6 @@ void setup() {
 }
 
 void loop() {
-    // Check for serial input and send to server
     if (Serial.available() > 0) {
         String input = Serial.readStringUntil('\n');
 
@@ -45,11 +45,9 @@ void loop() {
         }
     }
 
-    // Let the websockets client check for incoming messages
     client.poll();
     delay(500);
 }
-
 
 void connectToWiFi() {
     WiFi.begin(ssid, password);
@@ -68,8 +66,8 @@ void connectToWebSocket() {
     bool connected = client.connect(websockets_server_host, websockets_server_port, "/");
     if (connected) {
         Serial.println("Connected to WebSocket!");
-        client.send("Hello Server, I am ESP32");
-        Serial.println("Sent to server: Hello Server, I am ESP32");
+        client.send(client_id);  // Send client ID to the server
+        Serial.println("Sent client ID to server");
     } else {
         Serial.println("Failed to connect to WebSocket!");
         reconnectWebSocket();
@@ -81,8 +79,8 @@ void reconnectWebSocket() {
     while (!client.available()) {
         if (client.connect(websockets_server_host, websockets_server_port, "/")) {
             Serial.println("Reconnected to WebSocket!");
-            client.send("Hello Server, I am ESP32");
-            Serial.println("Sent to server: Hello Server, I am ESP32");
+            client.send(client_id);  // Send client ID to the server
+            Serial.println("Sent client ID to server");
             break;
         }
         Serial.println("Reconnection attempt failed. Retrying...");

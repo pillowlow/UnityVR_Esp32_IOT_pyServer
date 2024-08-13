@@ -5,14 +5,11 @@ using UnityEngine.UI;
 using System.Text;
 
 public class WebSocketClient : MonoBehaviour
-{      
-
-    [Header("WebSocket Settings")]
-    public string ipAddress = "192.168.100.157"; // Default IP address
+{
     private WebSocket websocket;
-
-    public TMP_InputField inputField;
-    public TextMeshProUGUI logText;
+    public string clientId = "UnityClient1"; // The ID that the client will send to the server
+    public TMP_InputField inputField; 
+    public TextMeshProUGUI logText; 
     public Button connectButton;
     public Button disconnectButton;
     public Button sendButton;
@@ -28,12 +25,17 @@ public class WebSocketClient : MonoBehaviour
 
     async void ConnectToWebSocket()
     {
-         websocket = new WebSocket($"ws://{ipAddress}:8080/");
+        Log("Attempting to connect...");
 
-        websocket.OnOpen += () =>
-        {   
+        websocket = new WebSocket("ws://192.168.100.157:8080/");
+
+        websocket.OnOpen += async () =>
+        {
             Debug.Log("Connection open!");
             Log("Connection open!");
+
+            // Send client ID to the server
+            await websocket.SendText(clientId);
         };
 
         websocket.OnError += (e) =>
@@ -55,12 +57,12 @@ public class WebSocketClient : MonoBehaviour
             Log("Received: " + message);
         };
 
-        // Connect to the server
         await websocket.Connect();
     }
 
     async void DisconnectWebSocket()
     {
+        Log("Disconnecting...");
         if (websocket != null)
         {
             await websocket.Close();
@@ -76,6 +78,10 @@ public class WebSocketClient : MonoBehaviour
             await websocket.SendText(message);
             Log("Sent: " + message);
         }
+        else
+        {
+            Log("WebSocket is not connected.");
+        }
     }
 
     void Log(string message)
@@ -84,11 +90,14 @@ public class WebSocketClient : MonoBehaviour
 
         if (logText != null)
         {
+            // Add the new message to the log
             logText.text += message + "\n";
+
+            // Split the log into lines
             string[] lines = logText.text.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
 
             // If the number of lines exceeds 6, remove the oldest line
-            if (lines.Length > 8)
+            if (lines.Length > 6)
             {
                 logText.text = string.Join("\n", lines, 1, lines.Length - 1) + "\n";
             }
@@ -101,7 +110,6 @@ public class WebSocketClient : MonoBehaviour
             Debug.LogError("logText is null. Make sure it is assigned in the Inspector.");
         }
     }
-
 
     void Update()
     {

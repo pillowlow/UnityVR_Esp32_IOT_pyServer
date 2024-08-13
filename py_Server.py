@@ -4,11 +4,11 @@ import logging
 import tkinter as tk
 from tkinter import scrolledtext
 from threading import Thread
+import socket  # Import socket to get the IP address
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 
-clients = set()
-resend_messages = True
+clients = {}  # Dictionary to store client ID and WebSocket pairs
 
 class WebSocketServer:
     def __init__(self):
@@ -17,31 +17,45 @@ class WebSocketServer:
         self.should_stop = False
 
     async def register(self, websocket):
-        clients.add(websocket)
-        app.add_client(websocket.remote_address)
-        logging.info(f"New client connected: {websocket.remote_address}")
+        await websocket.send("REQUEST_ID")  # Server requests client ID
         try:
+            client_id = await websocket.recv()  # Receive the client ID from the client
+            clients[client_id] = websocket
+            app.add_client(client_id)
+            logging.info(f"New client connected: ID {client_id}")
+
             async for message in websocket:
-                logging.info(f"Received message from {websocket.remote_address}: {message}")
-                app.log_message(f"Received message from {websocket.remote_address}: {message}")
-                if resend_messages:
-                    await self.notify_clients(message)
+                logging.info(f"Received message from ID {client_id}: {message}")
+                app.log_message(f"Received from ID {client_id}: {message}")
         except websockets.ConnectionClosed as e:
             logging.warning(f"Connection closed: {e}")
         except Exception as e:
             logging.error(f"Error: {e}")
         finally:
-            clients.remove(websocket)
-            app.remove_client(websocket.remote_address)
-            logging.info(f"Client disconnected: {websocket.remote_address}")
+            clients.pop(client_id, None)
+            app.remove_client(client_id)
+            logging.info(f"Client disconnected: ID {client_id}")
+
+    async def send_message_to_client(self, client_id, message):
+        client = clients.get(client_id)
+        if client:
+            await client.send(message)
+            logging.info(f"Sent message to ID {client_id}: {message}")
+            app.log_message(f"Sent to ID {client_id}: {message}")
+        else:
+            logging.warning(f"Client ID {client_id} not found.")
+            app.log_message(f"Client ID {client_id} not found.")
 
     async def notify_clients(self, message):
         if clients:  # asyncio.wait doesn't accept an empty list
-            await asyncio.gather(*[client.send(message) for client in clients])
+            logging.info(f"Broadcasting message to {len(clients)} clients: {message}")
+            await asyncio.gather(*[client.send(message) for client in clients.values()])
+        else:
+            logging.warning("No clients connected to broadcast the message.")
+            app.log_message("No clients connected to broadcast the message.")
 
     async def main(self):
         logging.info("Server started, waiting for clients to connect...")
-        # the server hold on 5050 port 
         self.server = await websockets.serve(self.register, "0.0.0.0", 8080)
         while not self.should_stop:
             await asyncio.sleep(1)
@@ -56,6 +70,20 @@ class WebSocketServer:
 
     def stop(self):
         self.should_stop = True
+
+
+def get_ip_address():
+    """Get the server's IP address"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(("10.254.254.254", 1))
+        ip_address = s.getsockname()[0]
+    except Exception:
+        ip_address = "127.0.0.1"  # Default to localhost if unable to get IP
+    finally:
+        s.close()
+    return ip_address
 
 server = WebSocketServer()
 
@@ -72,6 +100,10 @@ class ServerApp:
 
         self.right_frame = tk.Frame(self.main_frame)
         self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        # Display the server IP address
+        self.ip_address_label = tk.Label(self.left_frame, text=f"Server IP: {get_ip_address()}")
+        self.ip_address_label.pack()
 
         self.start_button = tk.Button(self.left_frame, text="Start Server", command=self.start_server)
         self.start_button.pack()
@@ -98,6 +130,16 @@ class ServerApp:
         self.clients_list = tk.Listbox(self.right_frame)
         self.clients_list.pack(fill=tk.BOTH, expand=True)
 
+        self.client_id_label = tk.Label(self.right_frame, text="Send message to client ID:")
+        self.client_id_label.pack()
+
+        self.client_id_entry = tk.Entry(self.right_frame)
+        self.client_id_entry.pack(fill=tk.X)
+
+        self.specific_message_entry = tk.Entry(self.right_frame)
+        self.specific_message_entry.pack(fill=tk.X)
+        self.specific_message_entry.bind('<Return>', self.send_message_to_specific_client)
+
         self.resend_button = tk.Button(self.right_frame, text="Disable Resend", command=self.toggle_resend)
         self.resend_button.pack()
 
@@ -121,13 +163,13 @@ class ServerApp:
         self.log_text.config(state='disabled')
         self.log_text.yview(tk.END)
 
-    def add_client(self, client):
-        self.clients_list.insert(tk.END, str(client))
+    def add_client(self, client_id):
+        self.clients_list.insert(tk.END, f"Client ID {client_id}")
 
-    def remove_client(self, client):
+    def remove_client(self, client_id):
         clients = self.clients_list.get(0, tk.END)
         for i, c in enumerate(clients):
-            if c == str(client):
+            if c == f"Client ID {client_id}":
                 self.clients_list.delete(i)
                 break
 
@@ -136,6 +178,15 @@ class ServerApp:
         self.message_entry.delete(0, tk.END)
         asyncio.run_coroutine_threadsafe(server.notify_clients(message), server.loop)
         self.log_message(f"Broadcasted message: {message}")
+
+    def send_message_to_specific_client(self, event):
+        try:
+            client_id = self.client_id_entry.get()
+            message = self.specific_message_entry.get()
+            asyncio.run_coroutine_threadsafe(server.send_message_to_client(client_id, message), server.loop)
+            self.log_message(f"Sent to client ID {client_id}: {message}")
+        except ValueError:
+            self.log_message("Invalid client ID.")
 
     def toggle_resend(self):
         global resend_messages
@@ -153,3 +204,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = ServerApp(root)
     root.mainloop()
+
