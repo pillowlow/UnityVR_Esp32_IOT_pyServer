@@ -6,8 +6,8 @@
 #include <ArduinoWebsockets.h>
 #include <WiFi.h>
 
-const char* ssid = "your_home_wifi_SSID"; // Enter SSID
-const char* password = "your_home_wifi_password"; // Enter Password
+const char* ssid = "yu68"; // Enter SSID
+const char* password = "2869chen"; // Enter Password
 const char* websockets_server_host = "192.168.100.157"; // Enter server address
 const uint16_t websockets_server_port = 8080; // Enter server port
 
