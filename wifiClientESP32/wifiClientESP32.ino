@@ -3,19 +3,21 @@
 
 */
 
+
 #include <ArduinoWebsockets.h>
 #include <WiFi.h>
-
-const char* ssid = "yu68"; // Enter your WIFI SSID
-const char* password = "2869chen"; // Enter your Password
-const char* websockets_server_host = "192.168.100.157"; // Enter server address
-const uint16_t websockets_server_port = 8080; // Enter server port
-
-const char* client_id = "ESP32Client1"; // The ID that this client will send to the server
+#include <ArduinoJson.h>
 
 using namespace websockets;
 
+const char* ssid = "yu68"; // Enter SSID
+const char* password = "2869chen"; // Enter Password
+const char* websockets_server_host = "192.168.100.157"; // Enter server address
+const uint16_t websockets_server_port = 8080; // Enter server port
+
 WebsocketsClient client;
+
+const char* client_id = "ESP32Client1"; // The ID of this ESP32 client
 
 void setup() {
     Serial.begin(115200);
@@ -23,18 +25,9 @@ void setup() {
     connectToWebSocket();
     
     client.onMessage([&](WebsocketsMessage message){
-      String receivedMessage = message.data();
-      Serial.print("Received from server: ");
-      Serial.println(receivedMessage);
-
-      // Check if the message indicates the server is closing
-      if (receivedMessage == "SERVER_CLOSING") {
-          Serial.println("Server is closing, disconnecting...");
-          client.close(1000, "Normal closure"); ;  // Properly close the connection
-          delay(1000);     // Add a delay to ensure the close frame is sent
-          ESP.restart();   // Restart the ESP32 to ensure a clean disconnection
-    }
-});
+        Serial.print("Received from server: ");
+        Serial.println(message.data());
+    });
 }
 
 void loop() {
@@ -47,7 +40,16 @@ void loop() {
             reconnectWebSocket();
         } else if (input == "disconnect") {
             disconnect();
-            
+        } else if (input.startsWith("send ")) {
+            String target_id = input.substring(5, input.indexOf(' ', 5));
+            String message = input.substring(input.indexOf(' ', 5) + 1);
+            sendMessageToClient(target_id, message);
+        } else if (input == "start stream") {
+            startStream("sensor_data");
+        } else if (input == "send stream") {
+            sendStreamData("sensor_data", "example_data");
+        } else if (input == "close stream") {
+            closeStream("sensor_data");
         } else {
             client.send(input.c_str());
             Serial.print("Sent to server: ");
@@ -76,35 +78,89 @@ void connectToWebSocket() {
     bool connected = client.connect(websockets_server_host, websockets_server_port, "/");
     if (connected) {
         Serial.println("Connected to WebSocket!");
-        client.send(client_id);  // Send client ID to the server
-        Serial.println("Sent client ID to server");
+        sendClientID();
     } else {
         Serial.println("Failed to connect to WebSocket!");
-        reconnectWebSocket();
     }
 }
 
-void reconnectWebSocket() {
-    Serial.println("Attempting to reconnect to WebSocket...");
-    while (!client.available()) {
-        if (client.connect(websockets_server_host, websockets_server_port, "/")) {
-            Serial.println("Reconnected to WebSocket!");
-            client.send(client_id);  // Send client ID to the server
-            Serial.println("Sent client ID to server");
-            break;
-        }
-        Serial.println("Reconnection attempt failed. Retrying...");
-        delay(5000); // Wait before retrying
-    }
+void sendClientID() {
+    StaticJsonDocument<200> doc;
+    doc["command"] = "client_id";
+    doc["client_id"] = client_id;
+
+    String jsonString;
+    serializeJson(doc, jsonString);
+    client.send(jsonString);
 }
 
-void disconnect() {
-    client.close();
-    Serial.println("Connection closed");
+void sendMessageToClient(const String& target_id, const String& message) {
+    StaticJsonDocument<200> doc;
+    doc["command"] = "send_to_client";
+    doc["target_id"] = target_id;
+    doc["client_id"] = client_id;
+    doc["data"] = message;
+
+    String jsonString;
+    serializeJson(doc, jsonString);
+    client.send(jsonString);
+
+    Serial.println("Message sent to client " + target_id);
+}
+
+void startStream(const String& stream_name) {
+    StaticJsonDocument<200> doc;
+    doc["command"] = "start_stream";
+    doc["stream_name"] = stream_name;
+    doc["client_id"] = client_id;
+
+    String jsonString;
+    serializeJson(doc, jsonString);
+    client.send(jsonString);
+
+    Serial.println("Started stream " + stream_name);
+}
+
+void sendStreamData(const String& stream_name, const String& data) {
+    StaticJsonDocument<200> doc;
+    doc["command"] = "stream_data";
+    doc["stream_name"] = stream_name;
+    doc["client_id"] = client_id;
+    doc["data"] = data;
+
+    String jsonString;
+    serializeJson(doc, jsonString);
+    client.send(jsonString);
+
+    Serial.println("Sent stream data for " + stream_name + ": " + data);
+}
+
+void closeStream(const String& stream_name) {
+    StaticJsonDocument<200> doc;
+    doc["command"] = "close_stream";
+    doc["stream_name"] = stream_name;
+    doc["client_id"] = client_id;
+
+    String jsonString;
+    serializeJson(doc, jsonString);
+    client.send(jsonString);
+
+    Serial.println("Closed stream " + stream_name);
 }
 
 void restartESP() {
     Serial.println("Restarting ESP32...");
     delay(1000);
     ESP.restart();
+}
+
+void reconnectWebSocket() {
+    Serial.println("Reconnecting to WebSocket...");
+    client.close();
+    connectToWebSocket();
+}
+
+void disconnect() {
+    Serial.println("Disconnecting from WebSocket...");
+    client.close();
 }
