@@ -5,15 +5,8 @@ import tkinter as tk
 from tkinter import scrolledtext
 from threading import Thread
 import socket  # Import socket to get the IP address
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
-
-clients = {}  # Dictionary to store client ID and WebSocket pairs
-
-import asyncio
-import websockets
-import logging
 import json
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 
@@ -27,82 +20,100 @@ class WebSocketServer:
         self.should_stop = False
 
     async def register(self, websocket):
-        await websocket.send("REQUEST_ID")  # Server requests client ID
+        # Send a JSON request to get the client ID
+        await websocket.send(json.dumps({"command": "REQUEST_ID"}))
         try:
-            client_id = await websocket.recv()  # Receive the client ID from the client
-            clients[client_id] = websocket
-            logging.info(f"New client connected: ID {client_id}")
+            # Wait for the client's response with the ID
+            message = await websocket.recv()
+            data = json.loads(message)
+            client_id = data.get("client_id")
 
-            async for message in websocket:
-                logging.info(f"Received message from ID {client_id}: {message}")
-                await self.handle_message(client_id, message)
+            if client_id:
+                clients[client_id] = websocket
+                logging.info(f"New client connected: ID {client_id}")
+                # Start listening to this client
+                await self.listen_to_client(client_id, websocket)
+
         except websockets.ConnectionClosed as e:
             logging.warning(f"Connection closed: {e}")
         except Exception as e:
             logging.error(f"Error: {e}")
         finally:
-            clients.pop(client_id, None)
-            logging.info(f"Client disconnected: ID {client_id}")
+            if client_id in clients:
+                clients.pop(client_id)
+                logging.info(f"Client disconnected: ID {client_id}")
 
-    async def handle_message(self, client_id, message):
+    async def listen_to_client(self, client_id, websocket):
         try:
-            data = json.loads(message)
-            command = data.get("command")
+            async for message in websocket:
+                logging.info(f"Received message from ID {client_id}: {message}")
+                data = json.loads(message)
+                await self.handle_message(client_id, data)
+        except websockets.ConnectionClosed as e:
+            logging.warning(f"Connection closed: {e}")
+        except Exception as e:
+            logging.error(f"Error: {e}")
 
-            if command == "send_to_client":
-                target_id = data.get("target_id")
-                target_client = clients.get(target_id)
-                if target_client:
-                    await target_client.send(json.dumps(data))
-                    logging.info(f"Message from {client_id} sent to {target_id}")
-                else:
-                    logging.warning(f"Client {target_id} not found.")
+    async def handle_message(self, client_id, data):
+        command = data.get("command")
 
-            elif command == "start_stream":
-                stream_name = data.get("stream_name")
-                streams[stream_name] = None  # Initialize the stream with no data
-                logging.info(f"Stream '{stream_name}' started by {client_id}")
-                app.refresh_stream_dropdown()  # Refresh the dropdown to show the new stream
-
-            elif command == "stream_data":
-                stream_name = data.get("stream_name")
-                stream_data = data.get("data")
-                streams[stream_name] = stream_data
-                logging.info(f"Received stream data for '{stream_name}' from {client_id}: {stream_data}")
-                if app.stream_dropdown.get() == stream_name:
-                    app.update_stream_display(stream_name)
-
-            elif command == "request_stream_data":
-                stream_name = data.get("stream_name")
-                if stream_name in streams:
-                    current_data = streams.get(stream_name)
-                    response = {"command": "stream_data", "stream_name": stream_name, "data": current_data}
-                    await clients[client_id].send(json.dumps(response))
-                    logging.info(f"Sent current stream data for '{stream_name}' to {client_id}")
-                else:
-                    logging.warning(f"Stream '{stream_name}' not found.")
-
-            elif command == "close_stream":
-                stream_name = data.get("stream_name")
-                if stream_name in streams:
-                    streams.pop(stream_name, None)
-                    logging.info(f"Stream '{stream_name}' closed by {client_id}")
-                    app.refresh_stream_dropdown()  # Refresh the dropdown to remove the closed stream
-
+        if command == "send_to_client":
+            target_id = data.get("target_id")
+            target_client = clients.get(target_id)
+            if target_client:
+                await target_client.send(json.dumps(data))
+                logging.info(f"Message from {client_id} sent to {target_id}")
             else:
-                logging.warning(f"Unknown command from {client_id}: {command}")
+                logging.warning(f"Client {target_id} not found.")
 
-        except json.JSONDecodeError:
-            logging.error(f"Failed to decode JSON message from {client_id}: {message}")
+        elif command == "start_stream":
+            stream_name = data.get("stream_name")
+            streams[stream_name] = None  # Initialize the stream with no data
+            logging.info(f"Stream '{stream_name}' started by {client_id}")
 
+        elif command == "stream_data":
+            stream_name = data.get("stream_name")
+            stream_data = data.get("data")
+            streams[stream_name] = stream_data
+            logging.info(f"Received stream data for '{stream_name}' from {client_id}: {stream_data}")
 
-    async def send_message_to_client(self, client_id, message):
-        client = clients.get(client_id)
-        if client:
-            await client.send(message)
-            logging.info(f"Sent message to ID {client_id}: {message}")
+        elif command == "request_stream_data":
+            stream_name = data.get("stream_name")
+            if stream_name in streams:
+                current_data = streams.get(stream_name)
+                response = {
+                    "command": "stream_data",
+                    "stream_name": stream_name,
+                    "data": current_data
+                }
+                await clients[client_id].send(json.dumps(response))
+                logging.info(f"Sent current stream data for '{stream_name}' to {client_id}")
+            else:
+                logging.warning(f"Stream '{stream_name}' not found.")
+
+        elif command == "close_stream":
+            stream_name = data.get("stream_name")
+            if stream_name in streams:
+                streams.pop(stream_name, None)
+                logging.info(f"Stream '{stream_name}' closed by {client_id}")
+
+        elif command == "broadcast":
+            broadcast_message = data.get("data")
+            await self.broadcast_message(broadcast_message, exclude_client=client_id)
+        elif command == "client_id":
+            # Handle the client_id command
+            logging.info(f"Received client_id command from {client_id}: {data.get('client_id')}")
         else:
-            logging.warning(f"Client ID {client_id} not found.")
+            logging.warning(f"Unknown command from {client_id}: {command}")
+
+    async def broadcast_message(self, message, exclude_client=None):
+        for cid, websocket in clients.items():
+            if cid != exclude_client:
+                await websocket.send(json.dumps({
+                    "command": "broadcast",
+                    "data": message
+                }))
+        logging.info(f"Broadcasted message: {message}")
 
     async def main(self):
         logging.info("Server started, waiting for clients to connect...")
@@ -122,7 +133,7 @@ class WebSocketServer:
             logging.info("Disconnecting all clients...")
             disconnect_tasks = []
             for client_id, websocket in list(clients.items()):
-                await websocket.send("SERVER_CLOSING")
+                await websocket.send(json.dumps({"command": "SERVER_CLOSING"}))
                 disconnect_tasks.append(websocket.close())
             await asyncio.gather(*disconnect_tasks)
             clients.clear()
@@ -143,81 +154,8 @@ class WebSocketServer:
         if self.server is not None:
             asyncio.run_coroutine_threadsafe(self.disconnect_all_clients(), self.loop).result()
             self.server.close()
-
-
-    async def main(self):
-        logging.info("Server started, waiting for clients to connect...")
-        self.server = await websockets.serve(self.register, "0.0.0.0", 8080)
-        try:
-            while not self.should_stop:
-                await asyncio.sleep(1)
-        finally:
-            logging.info("Server stopping, disconnecting all clients...")
-            await self.disconnect_all_clients()  # Disconnect all clients before closing the server
-
-            logging.info("All clients disconnected, closing server...")
-            self.server.close()
-            logging.info("Server socket closed, waiting for server to finish closing...")
-
-            try:
-                await asyncio.wait_for(self.server.wait_closed(), timeout=1.0)  # Add timeout to server closure
-                logging.info("Server has been stopped successfully.")
-            except asyncio.TimeoutError:
-                logging.error("Timeout while waiting for server to close.")
-                logging.info("Forcibly stopping the event loop and cancelling all tasks...")
-
-                # Forcefully stop the event loop and cancel all tasks
-                tasks = asyncio.all_tasks(self.loop)
-                for task in tasks:
-                    logging.info(f"Cancelling task: {task}")
-                    task.cancel()
-
-                logging.info("Stopping the event loop...")
-                self.loop.stop()  # Attempt to stop the event loop
-                logging.info("Event loop stopped.")
-            except Exception as e:
-                logging.error(f"Error while closing server: {e}")
-
-            finally:
-                # Attempt to clean up and close the event loop completely
-                if not self.loop.is_closed():
-                    logging.info("Closing the event loop forcefully...")
-                    self.loop.close()
-                    logging.info("Event loop closed.")
-
-
-
-    def start(self):
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-        self.should_stop = False
-        try:
-            self.loop.run_until_complete(self.main())
-        finally:
-            self.loop.run_until_complete(self.loop.shutdown_asyncgens())
-            self.loop.close()
-
-    def stop(self):
-        self.should_stop = True
-        if self.server is not None:
-
-            # Now, safely close the server
-            self.server.close()
-
-
-
-def get_ip_address():
-    """Get the server's IP address"""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        # doesn't even have to be reachable
-        s.connect(("10.254.254.254", 1))
-        ip_address = s.getsockname()[0]
-    except Exception:
-        ip_address = "127.0.0.1"  # Default to localhost if unable to get IP
-    finally:
-        s.close()
-    return ip_address
+            
+    
 
 server = WebSocketServer()
 

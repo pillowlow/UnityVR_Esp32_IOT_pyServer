@@ -7,6 +7,7 @@
 #include <ArduinoWebsockets.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
+#include <stdlib.h> // For random number generation
 
 using namespace websockets;
 
@@ -19,15 +20,47 @@ WebsocketsClient client;
 
 const char* client_id = "ESP32Client1"; // The ID of this ESP32 client
 
+bool stream_active = false;
+String current_stream_mode = "sensor_data"; // Default to sensor data mode
+
 void setup() {
     Serial.begin(115200);
     connectToWiFi();
     connectToWebSocket();
     
     client.onMessage([&](WebsocketsMessage message){
-        Serial.print("Received from server: ");
-        Serial.println(message.data());
+    Serial.print("Received from server: ");
+    Serial.println(message.data());
+
+    // Attempt to parse the message as JSON
+    StaticJsonDocument<200> doc;
+    DeserializationError error = deserializeJson(doc, message.data());
+
+    if (error) {
+        Serial.println("Failed to parse message as JSON:");
+        Serial.println(message.data());  // Log the raw message for debugging
+        return;
+    }
+
+    String command = doc["command"];
+
+    if (command == "REQUEST_ID") {
+          sendClientID();
+      } else if (command == "SERVER_CLOSING") {
+          Serial.println("Server is closing, disconnecting...");
+          client.close();
+      } else if (command == "broadcast") {
+          String broadcast_message = doc["data"];
+          Serial.print("Broadcast message from server: ");
+          Serial.println(broadcast_message);
+      } else {
+          Serial.println("Unknown command received:");
+          serializeJsonPretty(doc, Serial);
+      }
     });
+
+
+    randomSeed(analogRead(0)); // Initialize random number generator
 }
 
 void loop() {
@@ -45,11 +78,21 @@ void loop() {
             String message = input.substring(input.indexOf(' ', 5) + 1);
             sendMessageToClient(target_id, message);
         } else if (input == "start stream") {
-            startStream("sensor_data");
+            startStream(current_stream_mode);
+            stream_active = true;
         } else if (input == "send stream") {
-            sendStreamData("sensor_data", "example_data");
+            if (stream_active) {
+                sendStreamData(current_stream_mode);
+            }
         } else if (input == "close stream") {
-            closeStream("sensor_data");
+            closeStream(current_stream_mode);
+            stream_active = false;
+        } else if (input == "switch to sensor mode") {
+            current_stream_mode = "sensor_data";
+            Serial.println("Switched to sensor data mode.");
+        } else if (input == "switch to testing mode") {
+            current_stream_mode = "testing_data";
+            Serial.println("Switched to testing data mode.");
         } else {
             client.send(input.c_str());
             Serial.print("Sent to server: ");
@@ -92,6 +135,7 @@ void sendClientID() {
     String jsonString;
     serializeJson(doc, jsonString);
     client.send(jsonString);
+    Serial.println("send ID to server");
 }
 
 void sendMessageToClient(const String& target_id, const String& message) {
@@ -121,7 +165,14 @@ void startStream(const String& stream_name) {
     Serial.println("Started stream " + stream_name);
 }
 
-void sendStreamData(const String& stream_name, const String& data) {
+void sendStreamData(const String& stream_name) {
+    String data;
+    if (stream_name == "sensor_data") {
+        data = getSensorData();  // Placeholder for real sensor data
+    } else if (stream_name == "testing_data") {
+        data = String(random(1, 1000) / 100.0, 2); // Random float between 1.00 and 10.00
+    }
+
     StaticJsonDocument<200> doc;
     doc["command"] = "stream_data";
     doc["stream_name"] = stream_name;
@@ -133,6 +184,12 @@ void sendStreamData(const String& stream_name, const String& data) {
     client.send(jsonString);
 
     Serial.println("Sent stream data for " + stream_name + ": " + data);
+}
+
+String getSensorData() {
+    // Placeholder for real sensor data acquisition
+    // Replace this with actual sensor data reading code
+    return String(analogRead(0)); // Example sensor data
 }
 
 void closeStream(const String& stream_name) {
