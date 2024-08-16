@@ -20,8 +20,9 @@ WebsocketsClient client;
 
 const char* client_id = "ESP32Client1"; // The ID of this ESP32 client
 
+const char* stream_name = "esp32Stream1"; // Stream name
 bool stream_active = false;
-String current_stream_mode = "sensor_data"; // Default to sensor data mode
+String current_stream_mode = "testing_data"; // Default to sensor data mode
 
 void setup() {
     Serial.begin(115200);
@@ -53,6 +54,10 @@ void setup() {
           String broadcast_message = doc["data"];
           Serial.print("Broadcast message from server: ");
           Serial.println(broadcast_message);
+      } else if (command == "message"){
+          String message = doc["data"];
+          Serial.print("Recieve message: ");
+          Serial.println(message);
       } else {
           Serial.println("Unknown command received:");
           serializeJsonPretty(doc, Serial);
@@ -78,26 +83,25 @@ void loop() {
             String message = input.substring(input.indexOf(' ', 5) + 1);
             sendMessageToClient(target_id, message);
         } else if (input == "start stream") {
-            startStream(current_stream_mode);
+            startStream(stream_name,current_stream_mode);
             stream_active = true;
-        } else if (input == "send stream") {
-            if (stream_active) {
-                sendStreamData(current_stream_mode);
-            }
         } else if (input == "close stream") {
             closeStream(current_stream_mode);
             stream_active = false;
         } else if (input == "switch to sensor mode") {
             current_stream_mode = "sensor_data";
-            Serial.println("Switched to sensor data mode.");
+            Serial.println("Switched to sensor mode.");
         } else if (input == "switch to testing mode") {
             current_stream_mode = "testing_data";
-            Serial.println("Switched to testing data mode.");
+            Serial.println("Switched to testing mode.");
         } else {
             client.send(input.c_str());
             Serial.print("Sent to server: ");
             Serial.println(input);
         }
+    }
+    if(stream_active == true){
+      sendStreamData(stream_name,current_stream_mode);
     }
 
     client.poll();
@@ -152,7 +156,7 @@ void sendMessageToClient(const String& target_id, const String& message) {
     Serial.println("Message sent to client " + target_id);
 }
 
-void startStream(const String& stream_name) {
+void startStream(const String& stream_name, const String& stream_mode) {
     StaticJsonDocument<200> doc;
     doc["command"] = "start_stream";
     doc["stream_name"] = stream_name;
@@ -165,11 +169,11 @@ void startStream(const String& stream_name) {
     Serial.println("Started stream " + stream_name);
 }
 
-void sendStreamData(const String& stream_name) {
+void sendStreamData(const String& stream_name , const String& stream_mode) {
     String data;
-    if (stream_name == "sensor_data") {
+    if (stream_mode == "sensor_data") {
         data = getSensorData();  // Placeholder for real sensor data
-    } else if (stream_name == "testing_data") {
+    } else if (stream_mode == "testing_data") {
         data = String(random(1, 1000) / 100.0, 2); // Random float between 1.00 and 10.00
     }
 
