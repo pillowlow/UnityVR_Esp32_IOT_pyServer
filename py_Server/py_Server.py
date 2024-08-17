@@ -7,6 +7,7 @@ from threading import Thread
 import json
 
 
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 
 clients = {}  # Dictionary to store client ID and WebSocket pairs
@@ -75,19 +76,26 @@ class WebSocketServer:
                 self.app.log_message(log_message)
 
         elif command == "start_stream":
+            
+            # Start a new stream and refresh the dropdown menu
             stream_name = data.get("stream_name")
             streams[stream_name] = None  # Initialize the stream with no data
+            self.app.refresh_stream_dropdown() # Refresh the stream dropdown in the UI
             log_message = f"Stream '{stream_name}' started by {client_id}"
             logging.info(log_message)
             self.app.log_message(log_message)
 
         elif command == "stream_data":
+             # Update stream data and refresh the stream display if this stream is selected
             stream_name = data.get("stream_name")
             stream_data = data.get("data")
             streams[stream_name] = stream_data
-            log_message = f"Received stream data for '{stream_name}' from {client_id}: {stream_data}"
-            logging.info(log_message)
-            self.app.log_message(log_message)
+            self.app.log_message(f"Received stream data for '{stream_name}' from {client_id}: {stream_data}")
+
+            # If the currently selected stream is the one that just got updated, refresh the display
+            if self.app.stream_dropdown.get() == stream_name:
+                self.app.update_stream_display(stream_name)
+                
 
         elif command == "request_stream_data":
             stream_name = data.get("stream_name")

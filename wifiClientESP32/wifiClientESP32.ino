@@ -23,6 +23,7 @@ const char* client_id = "ESP32Client1"; // The ID of this ESP32 client
 const char* stream_name = "esp32Stream1"; // Stream name
 bool stream_active = false;
 String current_stream_mode = "testing_data"; // Default to sensor data mode
+float stream_resolution = 100;  // Default stream data resolution 
 
 void setup() {
     Serial.begin(115200);
@@ -95,17 +96,28 @@ void loop() {
             current_stream_mode = "testing_data";
             Serial.println("Switched to testing mode.");
         } else {
-            client.send(input.c_str());
-            Serial.print("Sent to server: ");
-            Serial.println(input);
-        }
+        // Create a JSON object to send
+        StaticJsonDocument<200> jsonDoc;
+        jsonDoc["command"] = "message";
+        jsonDoc["data"] = input;
+
+        // Serialize the JSON document to a string
+        String jsonString;
+        serializeJson(jsonDoc, jsonString);
+
+        // Send the JSON string
+        client.send(jsonString.c_str());
+
+        Serial.print("Sent to server: ");
+        Serial.println(jsonString);
+      }
     }
     if(stream_active == true){
       sendStreamData(stream_name,current_stream_mode);
     }
 
     client.poll();
-    delay(500);
+    delay(stream_resolution);
 }
 
 void connectToWiFi() {
