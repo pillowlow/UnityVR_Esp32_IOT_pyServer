@@ -47,10 +47,7 @@ class WebSocketServer:
         try:
             async for message in websocket:
                 data = json.loads(message)
-                command = data.get("command")
-                if command != "stream_data":
-                    self.app.log_message(f"Received message from ID {client_id}: {message}")
-                    await self.handle_message(client_id, data)
+                await self.handle_message(client_id, data)
         except websockets.ConnectionClosed as e:
             logging.warning(f"Connection closed: {e}")
             self.app.log_message(f"Connection closed: {e}")
@@ -83,11 +80,18 @@ class WebSocketServer:
             self.app.log_message(log_message)
 
         elif command == "stream_data":
+           
             stream_name = data.get("stream_name")
             stream_data = data.get("data")
-            self.streams[stream_name] = stream_name
+
+            # Store the stream data in the streams dictionary
+            self.streams[stream_name] = stream_data
+            self.app.log_message(stream_name)
+            # Check if the currently selected stream is the one that just received new data
             if self.app.stream_dropdown.get() == stream_name:
-                self.app.update_stream_log(stream_data)
+                # Update the stream log only if the selected stream matches the stream that received new data
+                self.app.update_stream_log(stream_name)
+
 
         elif command == "request_stream_data":
             stream_name = data.get("stream_name")

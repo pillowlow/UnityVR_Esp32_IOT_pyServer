@@ -16,7 +16,7 @@ class ServerApp:
         self.main_frame = tk.Frame(root)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Top controls frame (Start, Stop, Select Stream)
+        # Top controls frame (Start, Stop)
         self.top_frame = tk.Frame(self.main_frame)
         self.top_frame.pack(side=tk.TOP, fill=tk.X)
 
@@ -26,12 +26,10 @@ class ServerApp:
         self.stop_button = tk.Button(self.top_frame, text="Stop", command=self.stop_server, state=tk.DISABLED)
         self.stop_button.pack(side=tk.LEFT)
 
-        self.stream_label = tk.Label(self.top_frame, text="Select Stream")
-        self.stream_label.pack(side=tk.LEFT, padx=10)
-
+        # Dropdown to select stream
         self.stream_dropdown = tk.StringVar(self.top_frame)
         self.stream_dropdown.set("Select Stream")  # Default value
-        self.stream_menu = tk.OptionMenu(self.top_frame, self.stream_dropdown, "Select Stream", *self.websocket_server.streams.keys(), command=self.update_stream_log)
+        self.stream_menu = tk.OptionMenu(self.top_frame, self.stream_dropdown, "Select Stream", *self.websocket_server.streams.keys())
         self.stream_menu.pack(side=tk.LEFT)
 
         # Bottom frame for Broadcast and Select Client Input Bars
@@ -170,12 +168,21 @@ class ServerApp:
             self.stream_data_display.config(state='normal')
             self.stream_data_display.insert(tk.END, "Stream not found.\n")
             self.stream_data_display.config(state='disabled')
-
+            
     def refresh_stream_dropdown(self):
+        current_selection = self.stream_dropdown.get()  # Preserve current selection
         menu = self.stream_menu["menu"]
         menu.delete(0, "end")
         for stream_name in self.websocket_server.streams.keys():
             menu.add_command(label=stream_name, command=lambda value=stream_name: self.update_stream_log(value))
+        
+        # Reapply the preserved selection
+        if current_selection in self.websocket_server.streams:
+            self.stream_dropdown.set(current_selection)
+        else:
+            self.stream_dropdown.set("Select Stream")
+            
+
 
     def toggle_resend(self):
         global resend_messages
