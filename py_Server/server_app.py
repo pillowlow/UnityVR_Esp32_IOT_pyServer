@@ -8,6 +8,7 @@ class ServerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("WebSocket Server")
+        
 
         # Create an instance of WebSocketServer and pass `self` (ServerApp instance) to it
         self.websocket_server = WebSocketServer(self)
@@ -27,10 +28,14 @@ class ServerApp:
         self.stop_button.pack(side=tk.LEFT)
 
         # Dropdown to select stream
-        self.stream_dropdown = tk.StringVar(self.top_frame)
-        self.stream_dropdown.set("Select Stream")  # Default value
-        self.stream_menu = tk.OptionMenu(self.top_frame, self.stream_dropdown, "Select Stream", *self.websocket_server.streams.keys())
-        self.stream_menu.pack(side=tk.LEFT)
+        self.select_streams_dropdown = tk.StringVar(self.top_frame)
+        self.select_streams_dropdown.set("Select Stream")  # Default value
+        self.select_streams_menu = tk.OptionMenu(self.top_frame, self.select_streams_dropdown, "Select Stream", *self.websocket_server.streams.keys())
+        self.select_streams_menu.pack(side=tk.LEFT, padx=5)
+        
+        # IP and Port label
+        self.server_info_label = tk.Label(self.top_frame, text="")
+        self.server_info_label.pack(side=tk.RIGHT, padx=10)
 
         # Bottom frame for Broadcast and Select Client Input Bars
         self.bottom_frame = tk.Frame(self.main_frame)
@@ -98,10 +103,15 @@ class ServerApp:
         # Resend toggle button at the bottom-right
         self.resend_button = tk.Button(self.bottom_frame, text="Disable Resend", command=self.toggle_resend)
         self.resend_button.pack(side=tk.RIGHT, padx=10)
+        
+        # update stream log 
+        self.update_log_loop()
 
     def start_server(self):
         self.server_thread = Thread(target=self.websocket_server.start)
         self.server_thread.start()
+        # Display the server's IP and Port
+        self.server_info_label.config(text=f"IP: {self.websocket_server.host} Port: {self.websocket_server.port}")
         self.log_message("Server starting...")
         self.start_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
@@ -112,6 +122,7 @@ class ServerApp:
         self.log_message("Server stopped.")
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
+        self.server_info_label.config(text="")  # Clear IP and Port info when the server stops
 
     def log_message(self, message):
         self.log_text.config(state='normal')
@@ -156,33 +167,60 @@ class ServerApp:
             asyncio.run_coroutine_threadsafe(self.websocket_server.send_to_client(selected_client, message), self.websocket_server.loop)
             self.log_message(f"Sent to {selected_client}: {message}")
             self.client_message_entry.delete(0, tk.END)
+    
+    def update_log_loop(self):
+        """This function will run periodically to update the logs."""
+        # Check the selected stream and refresh the log display
+        selected_stream = self.select_streams_dropdown.get()
+        self.update_stream_log(selected_stream)
 
+        # Schedule this function to run again after 1 second (1000 ms)
+        self.root.after(100, self.update_log_loop)
+        
     def update_stream_log(self, selected_stream):
-        if selected_stream in self.websocket_server.streams:
+        max_lines = 20
+        if selected_stream != "Select Stream" and selected_stream in self.websocket_server.streams:
             current_data = self.websocket_server.streams[selected_stream]
             self.stream_data_display.config(state='normal')
+            
+            # Insert the new log entry
             self.stream_data_display.insert(tk.END, f"{current_data}\n")
+            
+            # Check the number of lines in the log
+            num_lines = int(self.stream_data_display.index('end-1c').split('.')[0])
+            
+            # If the number of lines exceeds max_lines, delete the oldest ones
+            if num_lines > max_lines:
+                self.stream_data_display.delete('1.0', '2.0')
+            
             self.stream_data_display.config(state='disabled')
             self.stream_data_display.yview(tk.END)
         else:
             self.stream_data_display.config(state='normal')
-            self.stream_data_display.insert(tk.END, "Stream not found.\n")
+            # self.stream_data_display.insert(tk.END, "No valid stream selected or stream not found.\n")
+            
+            # Optional: Check and delete lines here as well, if needed
+            num_lines = int(self.stream_data_display.index('end-1c').split('.')[0])
+            if num_lines > max_lines:
+                self.stream_data_display.delete('1.0', '2.0')
+            
             self.stream_data_display.config(state='disabled')
-            
-    def refresh_stream_dropdown(self):
-        current_selection = self.stream_dropdown.get()  # Preserve current selection
-        menu = self.stream_menu["menu"]
-        menu.delete(0, "end")
-        for stream_name in self.websocket_server.streams.keys():
-            menu.add_command(label=stream_name, command=lambda value=stream_name: self.update_stream_log(value))
-        
-        # Reapply the preserved selection
-        if current_selection in self.websocket_server.streams:
-            self.stream_dropdown.set(current_selection)
-        else:
-            self.stream_dropdown.set("Select Stream")
-            
 
+    def refresh_stream_dropdown(self):
+        """Refresh the dropdown menu to include all streams from the WebSocketServer."""
+        current_selection = self.select_streams_dropdown.get()  # Preserve the current selection
+        menu = self.select_streams_menu["menu"]
+        menu.delete(0, "end")  # Clear the existing menu options
+
+        # Add each stream from the WebSocketServer
+        for stream_name in self.websocket_server.streams.keys():
+            menu.add_command(label=stream_name, command=lambda value=stream_name: self.select_streams_dropdown.set(value))
+
+        # Reapply the preserved selection if it still exists
+        if current_selection in self.websocket_server.streams:
+            self.select_streams_dropdown.set(current_selection)
+        else:
+            self.select_streams_dropdown.set("Select Stream")
 
     def toggle_resend(self):
         global resend_messages

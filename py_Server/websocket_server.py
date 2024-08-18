@@ -85,13 +85,7 @@ class WebSocketServer:
             stream_data = data.get("data")
 
             # Store the stream data in the streams dictionary
-            self.streams[stream_name] = stream_data
-            self.app.log_message(stream_name)
-            # Check if the currently selected stream is the one that just received new data
-            if self.app.stream_dropdown.get() == stream_name:
-                # Update the stream log only if the selected stream matches the stream that received new data
-                self.app.update_stream_log(stream_name)
-
+            self.streams[stream_name] = stream_data            
 
         elif command == "request_stream_data":
             stream_name = data.get("stream_name")
@@ -113,9 +107,11 @@ class WebSocketServer:
 
         elif command == "close_stream":
             stream_name = data.get("stream_name")
+            self.app.log_message(stream_name)
             if stream_name in self.streams:
-                self.streams.pop(stream_name, None)
                 log_message = f"Stream '{stream_name}' closed by {client_id}"
+                del self.streams[stream_name]
+                self.app.refresh_stream_dropdown()  # Refresh the stream dropdown in the UI
                 logging.info(log_message)
                 self.app.log_message(log_message)
 

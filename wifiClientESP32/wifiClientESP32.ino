@@ -23,7 +23,7 @@ const char* client_id = "ESP32Client1"; // The ID of this ESP32 client
 const char* stream_name = "esp32Stream1"; // Stream name
 bool stream_active = false;
 String current_stream_mode = "testing_data"; // Default to sensor data mode
-float stream_resolution = 100;  // Default stream data resolution 
+float stream_resolution = 300;  // Default stream data resolution 
 
 void setup() {
     Serial.begin(115200);
