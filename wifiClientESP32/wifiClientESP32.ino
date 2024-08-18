@@ -84,10 +84,10 @@ void loop() {
             String message = input.substring(input.indexOf(' ', 5) + 1);
             sendMessageToClient(target_id, message);
         } else if (input == "start stream") {
-            startStream(stream_name,current_stream_mode);
+            startStream(stream_name);
             stream_active = true;
         } else if (input == "close stream") {
-            closeStream(current_stream_mode);
+            closeStream(stream_name);
             stream_active = false;
         } else if (input == "switch to sensor mode") {
             current_stream_mode = "sensor_data";
@@ -168,7 +168,7 @@ void sendMessageToClient(const String& target_id, const String& message) {
     Serial.println("Message sent to client " + target_id);
 }
 
-void startStream(const String& stream_name, const String& stream_mode) {
+void startStream(const String& stream_name) {
     StaticJsonDocument<200> doc;
     doc["command"] = "start_stream";
     doc["stream_name"] = stream_name;
