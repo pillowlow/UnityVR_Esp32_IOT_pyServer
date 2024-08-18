@@ -2,6 +2,7 @@ import asyncio
 import websockets
 import json
 import logging
+import socket
 
 from typing import TYPE_CHECKING, Dict, Any
 if TYPE_CHECKING:
@@ -14,6 +15,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 class WebSocketServer:
     def __init__(self, app: 'ServerApp'):
         self.app = app  # Reference to the ServerApp instance
+        self.port = 8080
+        self.host = None
         self.server = None
         self.loop = None
         self.should_stop = False
@@ -107,7 +110,9 @@ class WebSocketServer:
 
         elif command == "close_stream":
             stream_name = data.get("stream_name")
-            self.app.log_message(stream_name)
+            self.app.log_message("stream to close: '{stream_name}'")
+            logging.info("stream to close: '{stream_name}'")
+
             if stream_name in self.streams:
                 log_message = f"Stream '{stream_name}' closed by {client_id}"
                 del self.streams[stream_name]
@@ -162,7 +167,10 @@ class WebSocketServer:
     async def main(self):
         logging.info("Server started, waiting for clients to connect...")
         self.app.log_message("Server started, waiting for clients to connect...")
-        self.server = await websockets.serve(self.register, "0.0.0.0", 8080)
+        self.server = await websockets.serve(self.register, "0.0.0.0", self.port)
+        self.host = self.get_host_ip()
+        self.app.update_IP_config(self.host,self.port)
+        logging.info(f"host :{self.host}")
         try:
             while not self.should_stop:
                 await asyncio.sleep(1)
@@ -174,6 +182,19 @@ class WebSocketServer:
             await self.server.wait_closed()
             logging.info("Server has been stopped.")
             self.app.log_message("Server has been stopped.")
+            
+    def get_host_ip(self):
+        """Get the local IP address of the machine."""
+        try:
+            # This will attempt to connect to an external IP address to determine the local IP
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip_address = s.getsockname()[0]
+            s.close()
+            return ip_address
+        except Exception as e:
+            logging.error(f"Could not determine IP address: {e}")
+            return "127.0.0.1"  # Fallback to localhost
 
     async def disconnect_all_clients(self):
         if self.clients:

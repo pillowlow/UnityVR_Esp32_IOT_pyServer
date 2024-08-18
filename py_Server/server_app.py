@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import scrolledtext
 from threading import Thread
 import asyncio
+import logging
 from websocket_server import WebSocketServer  # Import the WebSocketServer class
 
 class ServerApp:
@@ -34,7 +35,7 @@ class ServerApp:
         self.select_streams_menu.pack(side=tk.LEFT, padx=5)
         
         # IP and Port label
-        self.server_info_label = tk.Label(self.top_frame, text="")
+        self.server_info_label = tk.Label(self.top_frame, text="........")
         self.server_info_label.pack(side=tk.RIGHT, padx=10)
 
         # Bottom frame for Broadcast and Select Client Input Bars
@@ -110,11 +111,13 @@ class ServerApp:
     def start_server(self):
         self.server_thread = Thread(target=self.websocket_server.start)
         self.server_thread.start()
-        # Display the server's IP and Port
-        self.server_info_label.config(text=f"IP: {self.websocket_server.host} Port: {self.websocket_server.port}")
+        logging.info("Server starting.")
         self.log_message("Server starting...")
         self.start_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
+        
+    def update_IP_config(self,host,port):
+        self.server_info_label.config(text=f"IP: {host} Port: {port}")
 
     def stop_server(self):
         self.websocket_server.stop()
