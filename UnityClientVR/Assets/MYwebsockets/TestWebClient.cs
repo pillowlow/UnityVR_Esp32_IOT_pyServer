@@ -3,22 +3,30 @@ using NativeWebSocket;
 using TMPro;
 using UnityEngine.UI;
 using System.Text;
+using System.Collections.Generic;
+using Newtonsoft.Json;
 
 public class WebSocketClient : MonoBehaviour
 {
     private WebSocket websocket;
     public string clientId = "UnityClient1"; // The ID that the client will send to the server
-    public TMP_InputField inputField; 
-    public TextMeshProUGUI logText; 
+    public TMP_InputField inputField;
+    public TMP_InputField streamRequestInput; // Input field for stream request
+    public TextMeshProUGUI logText;
     public Button connectButton;
     public Button disconnectButton;
     public Button sendButton;
+    public Button requestStreamButton; // Button to request stream data
+    public TextMeshProUGUI valueText; // Text to display the stream value
+
+    private string currentStream = ""; // Track the currently requested stream
 
     async void Start()
     {
         connectButton.onClick.AddListener(ConnectToWebSocket);
         disconnectButton.onClick.AddListener(DisconnectWebSocket);
         sendButton.onClick.AddListener(SendMessage);
+        requestStreamButton.onClick.AddListener(RequestStreamData);
 
         logText.text = "WebSocket Client Ready.\n";
     }
@@ -34,8 +42,13 @@ public class WebSocketClient : MonoBehaviour
             Debug.Log("Connection open!");
             Log("Connection open!");
 
-            // Send client ID to the server
-            await websocket.SendText(clientId);
+            // Send client ID to the server in JSON format
+            var message = new Dictionary<string, string>
+            {
+                { "command", "client_id" },
+                { "client_id", clientId }
+            };
+            await websocket.SendText(JsonConvert.SerializeObject(message));
         };
 
         websocket.OnError += (e) =>
@@ -54,7 +67,7 @@ public class WebSocketClient : MonoBehaviour
         {
             var message = Encoding.UTF8.GetString(bytes);
             Debug.Log("OnMessage! " + message);
-            Log("Received: " + message);
+            HandleServerMessage(message);
         };
 
         await websocket.Connect();
@@ -74,14 +87,106 @@ public class WebSocketClient : MonoBehaviour
     {
         if (websocket != null && websocket.State == WebSocketState.Open)
         {
-            var message = inputField.text;
-            await websocket.SendText(message);
-            Log("Sent: " + message);
+            var message = new Dictionary<string, string>
+            {
+                { "command", "message" },
+                { "client_id", clientId },
+                { "data", inputField.text }
+            };
+            await websocket.SendText(JsonConvert.SerializeObject(message));
+            Log("Sent: " + inputField.text);
         }
         else
         {
             Log("WebSocket is not connected.");
         }
+    }
+
+    async void RequestStreamData()
+    {
+        if (websocket != null && websocket.State == WebSocketState.Open)
+        {
+            currentStream = streamRequestInput.text;
+            var message = new Dictionary<string, string>
+            {
+                { "command", "request_stream_data" },
+                { "client_id", clientId },
+                { "stream_name", currentStream }
+            };
+            await websocket.SendText(JsonConvert.SerializeObject(message));
+            Log("Requested stream: " + currentStream);
+        }
+        else
+        {
+            Log("WebSocket is not connected.");
+        }
+    }
+
+    void HandleServerMessage(string message)
+    {
+        try
+        {
+            var data = JsonConvert.DeserializeObject<Dictionary<string, string>>(message);
+
+            if (data.ContainsKey("command"))
+            {
+                var command = data["command"];
+
+                switch (command)
+                {
+                    case "stream_data":
+                        HandleStreamData(data);
+                        break;
+                    case "broadcast":
+                        Log("Broadcast: " + data["data"]);
+                        break;
+                    default:
+                        Log("Unknown command: " + command);
+                        break;
+                }
+            }
+            else
+            {
+                Log("Received unrecognized message format.");
+            }
+        }
+        catch (JsonException ex)
+        {
+            Debug.LogError("Failed to parse message as JSON: " + ex.Message);
+            Log("Failed to parse message as JSON.");
+        }
+    }
+
+    void HandleStreamData(Dictionary<string, string> data)
+    {
+        if (data.ContainsKey("stream_name") && data.ContainsKey("data"))
+        {
+            string streamName = data["stream_name"];
+            if (streamName == currentStream)
+            {
+                if (float.TryParse(data["data"], out float streamValue))
+                {
+                    UpdateValueText(streamValue);
+                }
+                else
+                {
+                    Log("Received invalid stream data.");
+                }
+            }
+        }
+        else
+        {
+            Log("Received incomplete stream data.");
+        }
+    }
+
+    void UpdateValueText(float value)
+    {
+        if (valueText != null)
+        {
+            valueText.text = $"Stream Value: {value}";
+        }
+        Log("Updated value text to: " + value);
     }
 
     void Log(string message)
@@ -90,19 +195,14 @@ public class WebSocketClient : MonoBehaviour
 
         if (logText != null)
         {
-            // Add the new message to the log
             logText.text += message + "\n";
-
-            // Split the log into lines
             string[] lines = logText.text.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
 
-            // If the number of lines exceeds 6, remove the oldest line
             if (lines.Length > 6)
             {
                 logText.text = string.Join("\n", lines, 1, lines.Length - 1) + "\n";
             }
 
-            // Force TextMeshPro to update the text
             logText.ForceMeshUpdate();
         }
         else
@@ -116,7 +216,7 @@ public class WebSocketClient : MonoBehaviour
         if (websocket != null)
         {
             #if !UNITY_WEBGL || UNITY_EDITOR
-                websocket.DispatchMessageQueue();
+                        websocket.DispatchMessageQueue();
             #endif
         }
     }
