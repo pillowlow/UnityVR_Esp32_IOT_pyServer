@@ -140,6 +140,9 @@ public class WebSocketClient : MonoBehaviour
                     case "broadcast":
                         Log("Broadcast: " + data["data"]);
                         break;
+                    case "REQUEST_ID":
+                        Log("Send IO to server");
+                        break;
                     default:
                         Log("Unknown command: " + command);
                         break;
