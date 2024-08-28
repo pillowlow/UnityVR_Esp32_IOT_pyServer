@@ -1,7 +1,7 @@
 using UnityEngine;
-using NativeWebSocket;
+using UnityEngine.XR.Interaction.Toolkit;
 using TMPro;
-using UnityEngine.UI;
+using NativeWebSocket;
 using System.Text;
 using System.Collections.Generic;
 using Newtonsoft.Json;
@@ -13,29 +13,50 @@ public class WebSocketClient : MonoBehaviour
     public TMP_InputField inputField;
     public TMP_InputField streamRequestInput; // Input field for stream request
     public TextMeshProUGUI logText;
-    public Button connectButton;
-    public Button disconnectButton;
-    public Button sendButton;
-    public Button requestStreamButton; // Button to request stream data
+    public XRBaseInteractable connectInteractable;
+    public XRBaseInteractable disconnectInteractable;
+    public XRBaseInteractable sendInteractable;
+    public XRBaseInteractable requestStreamInteractable; // Interactable for requesting stream data
     public TextMeshProUGUI valueText; // Text to display the stream value
+    public string serverPort = "ws://192.168.100.157:8080/";
 
     private string currentStream = ""; // Track the currently requested stream
 
-    async void Start()
+    void Start()
     {
-        connectButton.onClick.AddListener(ConnectToWebSocket);
-        disconnectButton.onClick.AddListener(DisconnectWebSocket);
-        sendButton.onClick.AddListener(SendMessage);
-        requestStreamButton.onClick.AddListener(RequestStreamData);
+        connectInteractable.selectEntered.AddListener(OnConnect);
+        disconnectInteractable.selectEntered.AddListener(OnDisconnect);
+        sendInteractable.selectEntered.AddListener(OnSendMessage);
+        requestStreamInteractable.selectEntered.AddListener(OnRequestStream);
 
         logText.text = "WebSocket Client Ready.\n";
+    }
+
+    private void OnConnect(SelectEnterEventArgs args)
+    {
+        ConnectToWebSocket();
+    }
+
+    private void OnDisconnect(SelectEnterEventArgs args)
+    {
+        DisconnectWebSocket();
+    }
+
+    private void OnSendMessage(SelectEnterEventArgs args)
+    {
+        SendMessage();
+    }
+
+    private void OnRequestStream(SelectEnterEventArgs args)
+    {
+        RequestStreamData();
     }
 
     async void ConnectToWebSocket()
     {
         Log("Attempting to connect...");
 
-        websocket = new WebSocket("ws://192.168.100.157:8080/");
+        websocket = new WebSocket(serverPort);
 
         websocket.OnOpen += async () =>
         {

@@ -100,8 +100,8 @@ class WebSocketServer:
                     "data": current_data
                 }
                 await self.clients[client_id].send(json.dumps(response))
-                log_message = f"Sent current stream data for '{stream_name}' to {client_id}"
-                logging.info(log_message)
+                #log_message = f"Sent current stream data for '{stream_name}' to {client_id}"
+                #logging.info(log_message)
                 self.app.log_message(log_message)
             else:
                 log_message = f"Stream '{stream_name}' not found."
