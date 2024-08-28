@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.XR.Interaction.Toolkit;
 using TMPro;
 using NativeWebSocket;
 using System.Text;
@@ -13,10 +12,6 @@ public class WebSocketClient : MonoBehaviour
     public TMP_InputField inputField;
     public TMP_InputField streamRequestInput; // Input field for stream request
     public TextMeshProUGUI logText;
-    public XRBaseInteractable connectInteractable;
-    public XRBaseInteractable disconnectInteractable;
-    public XRBaseInteractable sendInteractable;
-    public XRBaseInteractable requestStreamInteractable; // Interactable for requesting stream data
     public TextMeshProUGUI valueText; // Text to display the stream value
     public string serverPort = "ws://192.168.100.157:8080/";
 
@@ -24,35 +19,10 @@ public class WebSocketClient : MonoBehaviour
 
     void Start()
     {
-        connectInteractable.selectEntered.AddListener(OnConnect);
-        disconnectInteractable.selectEntered.AddListener(OnDisconnect);
-        sendInteractable.selectEntered.AddListener(OnSendMessage);
-        requestStreamInteractable.selectEntered.AddListener(OnRequestStream);
-
         logText.text = "WebSocket Client Ready.\n";
     }
 
-    private void OnConnect(SelectEnterEventArgs args)
-    {
-        ConnectToWebSocket();
-    }
-
-    private void OnDisconnect(SelectEnterEventArgs args)
-    {
-        DisconnectWebSocket();
-    }
-
-    private void OnSendMessage(SelectEnterEventArgs args)
-    {
-        SendMessage();
-    }
-
-    private void OnRequestStream(SelectEnterEventArgs args)
-    {
-        RequestStreamData();
-    }
-
-    async void ConnectToWebSocket()
+    public async void ConnectToWebSocket()
     {
         Log("Attempting to connect...");
 
@@ -94,7 +64,7 @@ public class WebSocketClient : MonoBehaviour
         await websocket.Connect();
     }
 
-    async void DisconnectWebSocket()
+    public async void DisconnectWebSocket()
     {
         Log("Disconnecting...");
         if (websocket != null)
@@ -104,7 +74,7 @@ public class WebSocketClient : MonoBehaviour
         }
     }
 
-    async void SendMessage()
+    public async void SendMessage()
     {
         if (websocket != null && websocket.State == WebSocketState.Open)
         {
@@ -123,7 +93,7 @@ public class WebSocketClient : MonoBehaviour
         }
     }
 
-    async void RequestStreamData()
+    public async void RequestStreamData()
     {
         if (websocket != null && websocket.State == WebSocketState.Open)
         {
@@ -143,7 +113,7 @@ public class WebSocketClient : MonoBehaviour
         }
     }
 
-    void HandleServerMessage(string message)
+    private void HandleServerMessage(string message)
     {
         try
         {
@@ -181,7 +151,7 @@ public class WebSocketClient : MonoBehaviour
         }
     }
 
-    void HandleStreamData(Dictionary<string, string> data)
+    private void HandleStreamData(Dictionary<string, string> data)
     {
         if (data.ContainsKey("stream_name") && data.ContainsKey("data"))
         {
@@ -204,7 +174,7 @@ public class WebSocketClient : MonoBehaviour
         }
     }
 
-    void UpdateValueText(float value)
+    private void UpdateValueText(float value)
     {
         if (valueText != null)
         {
@@ -213,7 +183,7 @@ public class WebSocketClient : MonoBehaviour
         Log("Updated value text to: " + value);
     }
 
-    void Log(string message)
+    private void Log(string message)
     {
         Debug.Log("Log: " + message);
 
@@ -239,11 +209,11 @@ public class WebSocketClient : MonoBehaviour
     {
         if (websocket != null)
         {
-            #if !UNITY_WEBGL || UNITY_EDITOR
-                        websocket.DispatchMessageQueue();
-            #endif
-        }
-    }
+        #if !UNITY_WEBGL || UNITY_EDITOR
+                    websocket.DispatchMessageQueue();
+        #endif
+                }
+            }
 
     private async void OnApplicationQuit()
     {
